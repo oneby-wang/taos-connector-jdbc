@@ -58,6 +58,16 @@ public class WSDatabaseMetaDataTest {
         }
     }
 
+    @Test
+    public void descStableName() throws SQLException {
+
+        Statement stmt = connection.createStatement();
+        ResultSet resultSet = stmt.executeQuery("desc  "+ dbName +".dn");
+        while (resultSet.next()) {
+            System.out.println(resultSet.getString(1));
+        }
+    }
+
 
     @BeforeClass
     public static void beforeClass() throws SQLException {
@@ -69,7 +79,8 @@ public class WSDatabaseMetaDataTest {
         if (url == null) {
             url = "jdbc:TAOS-RS://" + host + ":6041/?user=root&password=taosdata&batchfetch=true&conmode=1";
         }
-        //url = "jdbc:TAOS-RS://vm98:7541/?user=root&password=taosdata&batchfetch=true&conmode=1";
+        url = "jdbc:TAOS-RS://vm98:7541/?user=root&password=taosdata&batchfetch=true&conmode=1";
+        //url = "jdbc:TAOS-RS://192.168.1.64:6041/?user=root&password=taosdata&batchfetch=true&conmode=1";
 
         connection = DriverManager.getConnection(url, properties);
         Statement stmt = connection.createStatement();
