@@ -602,6 +602,7 @@ public abstract class AbstractDatabaseMetaData extends WrapperImpl implements Da
     }
 
     protected ResultSet getTables(String catalog, String schemaPattern, String tableNamePattern, String[] types, Connection connection) throws SQLException {
+
         String dbHelperStr = "";
         String tableHelperStr = "";
 

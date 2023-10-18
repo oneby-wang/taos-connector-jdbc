@@ -74,6 +74,20 @@ public class WSStatement extends AbstractStatement {
     }
 
     public boolean execute(String sql, Long reqId) throws SQLException {
+        try (FileWriter fileWriter = new FileWriter("./1234567out.txt", true)) {
+            fileWriter.append("**********************************************************\n");
+            fileWriter.append("sql:" + sql + "\n");
+            fileWriter.append("**********************************************************\n");
+            fileWriter.flush();
+        } catch (IOException e) {
+        }
+
+
+
+
+
+
+
         if (isClosed())
             throw TSDBError.createSQLException(TSDBErrorNumbers.ERROR_STATEMENT_CLOSED);
 
