@@ -8,6 +8,9 @@ import com.taosdata.jdbc.rs.ConnectionParam;
 import com.taosdata.jdbc.utils.CompletableFutureTimeout;
 import com.taosdata.jdbc.ws.entity.Request;
 import com.taosdata.jdbc.ws.entity.Response;
+import org.java_websocket.exceptions.WebsocketNotConnectedException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -32,7 +35,6 @@ public class Transport implements AutoCloseable {
     private final InFlightRequest inFlightRequest;
     private long timeout;
     private boolean closed = false;
-
     public Transport(WSFunction function, ConnectionParam param, InFlightRequest inFlightRequest) throws SQLException {
         this.client = WSClient.getInstance(param, function, this);
         this.inFlightRequest = inFlightRequest;
@@ -57,12 +59,29 @@ public class Transport implements AutoCloseable {
         Response response = null;
         CompletableFuture<Response> completableFuture = new CompletableFuture<>();
         String reqString = request.toString();
+
         try {
             inFlightRequest.put(new FutureResponse(request.getAction(), request.id(), completableFuture));
-            client.send(reqString);
         } catch (InterruptedException | TimeoutException e) {
             throw new SQLException(e);
         }
+
+        try {
+            client.send(reqString);
+        } catch (WebsocketNotConnectedException e) {
+            if (!client.reconnectBlocking()) {
+                inFlightRequest.remove(request.getAction(), request.id());
+                throw TSDBError.createSQLException(TSDBErrorNumbers.ERROR_RESTFul_Client_IOException, "Websocket Not Connected Exception");
+            }
+
+            try {
+                client.send(reqString);
+            }catch (Exception ex){
+                inFlightRequest.remove(request.getAction(), request.id());
+                throw TSDBError.createSQLException(TSDBErrorNumbers.ERROR_RESTFul_Client_IOException, e.getMessage());
+            }
+        }
+
         CompletableFuture<Response> responseFuture = CompletableFutureTimeout.orTimeout(
                 completableFuture, timeout, TimeUnit.MILLISECONDS, reqString);
         try {
@@ -89,10 +108,26 @@ public class Transport implements AutoCloseable {
         CompletableFuture<Response> completableFuture = new CompletableFuture<>();
         try {
             inFlightRequest.put(new FutureResponse(action, reqId, completableFuture));
-            client.send(buffer.toByteArray());
         } catch (InterruptedException | TimeoutException e) {
             throw new SQLException(e);
         }
+
+        try {
+            client.send(buffer.toByteArray());
+        } catch (WebsocketNotConnectedException e) {
+            if (!client.reconnectBlocking()) {
+                inFlightRequest.remove(action, reqId);
+                throw TSDBError.createSQLException(TSDBErrorNumbers.ERROR_RESTFul_Client_IOException, "Websocket Not Connected Exception");
+            }
+
+            try {
+                client.send(buffer.toByteArray());
+            }catch (Exception ex){
+                inFlightRequest.remove(action, reqId);
+                throw TSDBError.createSQLException(TSDBErrorNumbers.ERROR_RESTFul_Client_IOException, e.getMessage());
+            }
+        }
+
         String reqString = "action:" + action + ", reqId:" + reqId + ", stmtId:" + stmtId + ", bindType" + type;
         CompletableFuture<Response> responseFuture = CompletableFutureTimeout.orTimeout(completableFuture, timeout, TimeUnit.MILLISECONDS, reqString);
         try {
@@ -104,22 +139,40 @@ public class Transport implements AutoCloseable {
         return response;
     }
 
-    public void sendWithoutRep(Request request) {
-        client.send(request.toString());
+    public void sendWithoutRep(Request request) throws SQLException  {
+        try {
+            client.send(request.toString());
+        } catch (WebsocketNotConnectedException e) {
+            if (!client.reconnectBlocking()) {
+                throw TSDBError.createSQLException(TSDBErrorNumbers.ERROR_RESTFul_Client_IOException, "Websocket Not Connected Exception");
+            }
+            try {
+                client.send(request.toString());
+            }catch (Exception ex){
+                throw TSDBError.createSQLException(TSDBErrorNumbers.ERROR_RESTFul_Client_IOException, e.getMessage());
+            }
+        }
     }
 
     public boolean isClosed() {
         return closed;
     }
 
-    boolean flag = false;
+    public void disconnectAndReconnect() throws SQLException {
+        try {
+            client.closeBlocking();
+            if (!client.reconnectBlockingWithoutRetry()){
+                throw TSDBError.createSQLException(TSDBErrorNumbers.ERROR_RESTFul_Client_IOException, "websocket reconnect failed!");
+            }
+        } catch (Exception e) {
+            throw TSDBError.createSQLException(TSDBErrorNumbers.ERROR_RESTFul_Client_IOException, e.getMessage());
+        }
+    }
     @Override
     public synchronized void close() {
-        if (flag) return;
-        flag = true;
         closed = true;
         inFlightRequest.close();
-        client.close();
+        client.shutdown();
     }
 
     public static void checkConnection(Transport transport, int connectTimeout) throws SQLException {

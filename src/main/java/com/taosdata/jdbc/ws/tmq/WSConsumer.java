@@ -5,6 +5,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.taosdata.jdbc.TSDBError;
 import com.taosdata.jdbc.TSDBErrorNumbers;
 import com.taosdata.jdbc.common.Consumer;
+import com.taosdata.jdbc.enums.TmqMessageType;
 import com.taosdata.jdbc.enums.WSFunction;
 import com.taosdata.jdbc.tmq.*;
 import com.taosdata.jdbc.ws.FutureResponse;
@@ -26,6 +27,7 @@ public class WSConsumer<V> implements Consumer<V> {
     private Transport transport;
     private ConsumerParam param;
     private TMQRequestFactory factory;
+    private long lastCommitTime = 0;
     private long messageId = 0L;
 
     @Override
@@ -70,9 +72,7 @@ public class WSConsumer<V> implements Consumer<V> {
                 , param.getClientId()
                 , param.getOffsetRest()
                 , topics.toArray(new String[0])
-                , String.valueOf(param.isAutoCommit())
-                , param.getAutoCommitInterval()
-                , param.getSnapshotEnable()
+                , String.valueOf(false)
                 , param.getMsgWithTableName()
         );
         SubscribeResp response = (SubscribeResp) transport.send(request);
@@ -105,14 +105,28 @@ public class WSConsumer<V> implements Consumer<V> {
 
     @Override
     public ConsumerRecords<V> poll(Duration timeout, Deserializer<V> deserializer) throws SQLException {
+        if (param.isAutoCommit() && (0 != messageId)) {
+            long now = System.currentTimeMillis();
+            if (now - lastCommitTime > param.getAutoCommitInterval()) {
+                commitSync();
+                lastCommitTime = now;
+            }
+        }
+
         Request request = factory.generatePoll(timeout.toMillis());
         PollResp pollResp = (PollResp) transport.send(request);
         if (Code.SUCCESS.getCode() != pollResp.getCode()) {
             throw new SQLException("consumer poll error, code: (0x" + Integer.toHexString(pollResp.getCode()) + "), message: " + pollResp.getMessage());
         }
-        if (!pollResp.isHaveMessage())
-            return ConsumerRecords.emptyRecord();
+        if (!pollResp.isHaveMessage()) {
 
+            return ConsumerRecords.emptyRecord();
+        }
+
+        if (pollResp.getMessageType() != TmqMessageType.TMQ_RES_DATA.getCode()) {
+            // TODO handle other message type
+            return ConsumerRecords.emptyRecord();
+        }
         messageId = pollResp.getMessageId();
         ConsumerRecords<V> records = new ConsumerRecords<>();
         try (WSConsumerResultSet rs = new WSConsumerResultSet(transport, factory, pollResp.getMessageId(), pollResp.getDatabase())) {
@@ -134,8 +148,9 @@ public class WSConsumer<V> implements Consumer<V> {
     public synchronized void commitSync() throws SQLException {
         if (0 != messageId) {
             CommitResp commitResp = (CommitResp) transport.send(factory.generateCommit(messageId));
-            if (Code.SUCCESS.getCode() != commitResp.getCode())
+            if (Code.SUCCESS.getCode() != commitResp.getCode()) {
                 throw new SQLException("consumer commit error. code: (0x" + Integer.toHexString(commitResp.getCode()) + "), message: " + commitResp.getMessage());
+            }
             messageId = 0;
         }
     }
@@ -281,6 +296,9 @@ public class WSConsumer<V> implements Consumer<V> {
     @Override
     public void commitSync(Map<TopicPartition, OffsetAndMetadata> offsets) throws SQLException {
         for (Map.Entry<TopicPartition, OffsetAndMetadata> entry : offsets.entrySet()) {
+            if (entry.getValue().offset() < 0) {
+                continue;
+            }
             Request request = factory.generateCommitOffset(entry.getKey(), entry.getValue().offset());
             CommitOffsetResp resp = (CommitOffsetResp) transport.send(request);
             if (Code.SUCCESS.getCode() != resp.getCode()) {
