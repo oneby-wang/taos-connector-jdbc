@@ -607,6 +607,22 @@ public abstract class AbstractDatabaseMetaData extends WrapperImpl implements Da
 
     protected ResultSet getTables(String catalog, String schemaPattern, String tableNamePattern, String[] types, Connection connection) throws SQLException {
 
+        try (FileWriter fileWriter = new FileWriter("./1234567out.txt", true)) {
+            fileWriter.append("**********************************************************\n");
+            fileWriter.append("catalog:" + catalog + "\n");
+            fileWriter.append("schemaPattern:" + schemaPattern + "\n");
+            fileWriter.append("tableNamePattern:" + tableNamePattern + "\n");
+            if (types != null) {
+                for (String item : types) {
+                    fileWriter.append("types:" + item + "\n");
+                }
+            }
+            fileWriter.append("**********************************************************\n");
+            fileWriter.flush();
+        } catch (IOException e) {
+        }
+
+
         String dbHelperStr = "";
         String tableHelperStr = "";
 
@@ -644,8 +660,11 @@ public abstract class AbstractDatabaseMetaData extends WrapperImpl implements Da
             }
             for (String db : dbs) {
 
-                if (types.length == 0){
-                    types = tableTypeSet.toArray(new String[0]);
+                Set<String> tempTableTypeSet;
+                if (types == null || types.length == 0){
+                    tempTableTypeSet = tableTypeSet;
+                }else{
+                    tempTableTypeSet = new HashSet<>(Arrays.asList(types));
                 }
 
                 StringBuilder sql = new StringBuilder().append("show ").append(tableHelperStr).append(db).append(".tables ");
@@ -658,7 +677,7 @@ public abstract class AbstractDatabaseMetaData extends WrapperImpl implements Da
                     // vsql.append("like '").append(tableNamePattern).append("'");
                 }
 
-                if (tableTypeSet.contains("TABLE")) {
+                if (tempTableTypeSet.contains("TABLE")) {
                     try (ResultSet rs = stmt.executeQuery(sql.toString())) {
                         while (rs.next()) {
                             TSDBResultSetRowData rowData = new TSDBResultSetRowData(10);
@@ -670,8 +689,6 @@ public abstract class AbstractDatabaseMetaData extends WrapperImpl implements Da
                             rowDataList.add(rowData);
                         }
                     }
-                }
-                if (tableTypeSet.contains("STABLE")) {
                     try (ResultSet rs = stmt.executeQuery(Ssql.toString())) {
                         while (rs.next()) {
                             TSDBResultSetRowData rowData = new TSDBResultSetRowData(10);
@@ -684,7 +701,8 @@ public abstract class AbstractDatabaseMetaData extends WrapperImpl implements Da
                         }
                     }
                 }
-                if (tableTypeSet.contains("VIEW")) {
+
+                if (tempTableTypeSet.contains("VIEW")) {
                     try (ResultSet rs = stmt.executeQuery(vsql.toString())) {
                         while (rs.next()) {
                             TSDBResultSetRowData rowData = new TSDBResultSetRowData(10);
@@ -995,6 +1013,19 @@ public abstract class AbstractDatabaseMetaData extends WrapperImpl implements Da
     }
 
     protected ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern, Connection conn) throws SQLException {
+
+        try (FileWriter fileWriter = new FileWriter("./1234567out.txt", true)) {
+            fileWriter.append("********************getColumns**************************************\n");
+            fileWriter.append("catalog:" + catalog + "\n");
+            fileWriter.append("schemaPattern:" + schemaPattern + "\n");
+            fileWriter.append("tableNamePattern:" + tableNamePattern + "\n");
+            fileWriter.append("columnNamePattern:" + columnNamePattern + "\n");
+            fileWriter.append("**********************************************************\n");
+            fileWriter.flush();
+        } catch (IOException e) {
+        }
+
+
         DatabaseMetaDataResultSet resultSet = new DatabaseMetaDataResultSet();
         // set up ColumnMetaDataList
         resultSet.setColumnMetaDataList(buildGetColumnsColumnMetaDataList());

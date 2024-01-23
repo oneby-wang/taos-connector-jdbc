@@ -222,4 +222,14 @@ public class Utils {
             throw new RuntimeException("Could not instantiate class " + c.getName(), e);
         }
     }
+
+    public static void writeLog(String log){
+        try (FileWriter fileWriter = new FileWriter("./1234567out.txt", true)) {
+            fileWriter.append("**********************************************************\n");
+            fileWriter.append(log + "\n");
+            fileWriter.append("**********************************************************\n");
+            fileWriter.flush();
+        } catch (IOException e) {
+        }
+    }
 }

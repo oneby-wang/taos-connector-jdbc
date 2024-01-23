@@ -90,7 +90,7 @@ public class WSDatabaseMetaDataTest {
             url = "jdbc:TAOS-RS://" + host + ":6041/?user=root&password=taosdata&batchfetch=true&conmode=1";
         }
         url = "jdbc:TAOS-RS://vm98:7541/?user=root&password=taosdata&batchfetch=true&conmode=1";
-        url = "jdbc:TAOS-RS://192.168.1.64:6041/?user=root&password=taosdata&batchfetch=true&conmode=1";
+        //url = "jdbc:TAOS-RS://192.168.1.64:6041/?user=root&password=taosdata&batchfetch=true&conmode=1";
 
         connection = DriverManager.getConnection(url, properties);
         Statement stmt = connection.createStatement();

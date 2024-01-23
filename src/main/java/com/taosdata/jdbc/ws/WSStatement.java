@@ -7,6 +7,9 @@ import com.taosdata.jdbc.TSDBErrorNumbers;
 import com.taosdata.jdbc.utils.ReqId;
 import com.taosdata.jdbc.utils.SqlSyntaxValidator;
 import com.taosdata.jdbc.ws.entity.*;
+
+import java.io.FileWriter;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -71,18 +74,24 @@ public class WSStatement extends AbstractStatement {
     }
 
     public boolean execute(String sql, Long reqId) throws SQLException {
-        try (FileWriter fileWriter = new FileWriter("./1234567out.txt", true)) {
-            fileWriter.append("**********************************************************\n");
-            fileWriter.append("sql:" + sql + "\n");
-            fileWriter.append("**********************************************************\n");
-            fileWriter.flush();
-        } catch (IOException e) {
+        if(sql != null){
+            String out = "";
+            StackTraceElement[] stackElements = Thread.currentThread().getStackTrace();
+            if(stackElements != null)
+            {
+                for(int i = 0; i < stackElements.length; i++)
+                {
+                    out = out + stackElements[i] + '\n';
+                }
+            }
+            try (FileWriter fileWriter = new FileWriter("./1234567out.txt", true)) {
+                fileWriter.append(out);
+                fileWriter.append(sql);
+                fileWriter.append("----------------------------------------------------------\n");
+                fileWriter.flush();
+            } catch (IOException e) {
+            }
         }
-
-
-
-
-
 
 
         if (isClosed())
