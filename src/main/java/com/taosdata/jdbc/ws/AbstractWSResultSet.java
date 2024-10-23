@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.concurrent.*;
 
 public abstract class AbstractWSResultSet extends AbstractResultSet {
-    private final Logger log = LoggerFactory.getLogger(Transport.class);
+    private static final Logger log = LoggerFactory.getLogger(AbstractWSResultSet.class);
 
     protected final Statement statement;
     protected final Transport transport;

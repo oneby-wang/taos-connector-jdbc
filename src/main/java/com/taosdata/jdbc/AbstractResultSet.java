@@ -1,5 +1,9 @@
 package com.taosdata.jdbc;
 
+import com.taosdata.jdbc.ws.AbstractWSResultSet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -10,11 +14,21 @@ import java.util.Map;
 import java.util.concurrent.ForkJoinPool;
 
 public abstract class AbstractResultSet extends WrapperImpl implements ResultSet {
+    private static final Logger log = LoggerFactory.getLogger(AbstractResultSet.class);
+
     private int fetchSize;
     protected boolean wasNull;
     protected int timestampPrecision;
 
     private static final ForkJoinPool forkJoinPool = new ForkJoinPool();
+
+    static {
+        // 注册关闭钩子
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            log.info("JVM is shutting down. Shutting down ForkJoinPool.");
+            forkJoinPool.shutdown();
+        }));
+    }
 
     public void setTimestampPrecision(int timestampPrecision) {
         this.timestampPrecision = timestampPrecision;

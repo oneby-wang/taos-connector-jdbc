@@ -27,7 +27,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class WSConsumer<V> implements Consumer<V> {
-    private final org.slf4j.Logger log = LoggerFactory.getLogger(WSConsumer.class);
+    private static final org.slf4j.Logger log = LoggerFactory.getLogger(WSConsumer.class);
     private Transport transport;
     private ConsumerParam param;
     private TMQRequestFactory factory;

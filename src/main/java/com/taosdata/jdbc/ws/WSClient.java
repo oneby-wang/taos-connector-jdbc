@@ -26,7 +26,7 @@ import java.util.function.Consumer;
 
 public class WSClient extends WebSocketClient implements AutoCloseable {
 
-    private final Logger log = LoggerFactory.getLogger(WSClient.class);
+    private static final Logger log = LoggerFactory.getLogger(WSClient.class);
 
     private static final Draft perMessageDeflateDraft = new Draft_6455(
             new PerMessageDeflateExtension());
