@@ -7,6 +7,7 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import sun.lwawt.macosx.CSystemTray;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -67,6 +68,55 @@ public class WSConsumerTest {
                 for (ConsumerRecord<Map<String, Object>> r : consumerRecords) {
                     Map<String, Object> map = r.value();
                     Assert.assertEquals(7, map.size());
+                }
+            }
+            consumer.unsubscribe();
+        }
+        scheduledExecutorService.shutdown();
+    }
+
+    @Test
+    public void testWSList() throws Exception {
+        AtomicInteger a = new AtomicInteger(1);
+        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r);
+            t.setName("topic-thread-" + t.getId());
+            return t;
+        });
+        scheduledExecutorService.scheduleWithFixedDelay(() -> {
+            try {
+                statement.executeUpdate(
+                        "insert into ct0 values(now, " + a.getAndIncrement() + ", 0.2, 'a','一', true)" +
+                                "(now+1s," + a.getAndIncrement() + ",0.4,'b','二', false)" +
+                                "(now+2s," + a.getAndIncrement() + ",0.6,'c','三', false)");
+            } catch (SQLException e) {
+                // ignore
+            }
+        }, 0, 10, TimeUnit.MILLISECONDS);
+        TimeUnit.MILLISECONDS.sleep(11);
+
+        String topic = topics[0];
+        // create topic
+        statement.executeUpdate("create topic if not exists " + topic + " as select ts, c1, c2, c3, c4, c5, t1 from ct0");
+
+        Properties properties = new Properties();
+        properties.setProperty(TMQConstants.CONNECT_USER, "root");
+        properties.setProperty(TMQConstants.CONNECT_PASS, "taosdata");
+        properties.setProperty(TMQConstants.BOOTSTRAP_SERVERS, "127.0.0.1:6041");
+        properties.setProperty(TMQConstants.MSG_WITH_TABLE_NAME, "true");
+        properties.setProperty(TMQConstants.ENABLE_AUTO_COMMIT, "true");
+        properties.setProperty(TMQConstants.GROUP_ID, "ws_map");
+        properties.setProperty(TMQConstants.CONNECT_TYPE, "ws");
+        properties.setProperty(TMQConstants.VALUE_DESERIALIZER, "com.taosdata.jdbc.tmq.ListDeserializer");
+
+
+        try (TaosConsumer<List<Object>> consumer = new TaosConsumer<>(properties)) {
+            consumer.subscribe(Collections.singletonList(topic));
+            for (int i = 0; i < 10; i++) {
+                ConsumerRecords<List<Object>> consumerRecords = consumer.poll(Duration.ofMillis(100));
+                for (ConsumerRecord<List<Object>> r : consumerRecords) {
+                    List<Object> list = r.value();
+                    Assert.assertEquals(7, list.size());
                 }
             }
             consumer.unsubscribe();
