@@ -4,6 +4,8 @@ import com.taosdata.jdbc.*;
 import com.taosdata.jdbc.utils.ReqId;
 import com.taosdata.jdbc.utils.SqlSyntaxValidator;
 import com.taosdata.jdbc.ws.entity.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -14,6 +16,9 @@ import java.sql.SQLException;
 import static com.taosdata.jdbc.utils.SqlSyntaxValidator.getDatabaseName;
 
 public class WSStatement extends AbstractStatement {
+    private final Logger log = LoggerFactory.getLogger(WSStatement.class);
+
+
     protected Transport transport;
     private String database;
     private final AbstractConnection connection;
@@ -33,10 +38,21 @@ public class WSStatement extends AbstractStatement {
 
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
-        return executeQuery(sql, null);
+        long b = System.currentTimeMillis();
+        long reqid = ReqId.getReqID();
+        ResultSet rs = this.executeQuery(sql, reqid);
+        long e = System.currentTimeMillis();
+        if ((e - b) > 1000){
+            log.info("thid: {}, reqid: 0x{}, executeQuery {}, finished, cost {} ms",
+                    Thread.currentThread().getId(),
+                    Long.toHexString(reqid),
+                    sql, e -b);
+        }
+        return rs;
     }
 
     public ResultSet executeQuery(String sql, Long reqId) throws SQLException {
+
         if (isClosed())
             throw TSDBError.createSQLException(TSDBErrorNumbers.ERROR_STATEMENT_CLOSED);
 

@@ -123,6 +123,8 @@ public abstract class AbstractWSResultSet extends AbstractResultSet {
 
     @Override
     public boolean next() throws SQLException {
+        long b = System.currentTimeMillis();
+
         if (isClosed()) {
             throw TSDBError.createSQLException(TSDBErrorNumbers.ERROR_RESULTSET_CLOSED);
         }
@@ -178,6 +180,14 @@ public abstract class AbstractWSResultSet extends AbstractResultSet {
 
             this.result = blockData.getData();
             this.numOfRows = blockData.getNumOfRows();
+        }
+
+        long e = System.currentTimeMillis();
+        if ((e - b) > 1000) {
+            log.info("thid: {}, reqId: {}, next called finished, cost {} ms",
+                    Thread.currentThread().getId(),
+                    queryId,
+                    e - b);
         }
 
         return true;
