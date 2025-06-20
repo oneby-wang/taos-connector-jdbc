@@ -3,6 +3,9 @@ package com.taosdata.jdbc;
 import com.taosdata.jdbc.utils.DataTypeConverUtil;
 import com.taosdata.jdbc.utils.DateTimeUtils;
 import com.taosdata.jdbc.utils.Utils;
+import com.taosdata.jdbc.ws.Transport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
@@ -19,6 +22,8 @@ import static com.taosdata.jdbc.TSDBConstants.*;
 import static com.taosdata.jdbc.utils.UnsignedDataUtils.*;
 
 public class TSDBResultSetBlockData {
+    private static final Logger log = LoggerFactory.getLogger(TSDBResultSetBlockData.class);
+
     private int numOfRows = 0;
     private int rowIndex = 0;
 
@@ -90,6 +95,18 @@ public class TSDBResultSetBlockData {
         buffer = ByteBuffer.wrap(copy);
     }
     public void doSetByteArray() {
+        log.info("doSetByteArray start");
+        try {
+            doSetByteArrayInner();
+        } catch (Exception e) {
+            log.error("doSetByteArrayInner error", e);
+        }
+        log.info("doSetByteArray stop");
+
+    }
+
+    public void doSetByteArrayInner() {
+        log.info("doSetByteArrayInner start");
         buffer.order(ByteOrder.LITTLE_ENDIAN);
         int bitMapOffset = BitmapLen(numOfRows);
         int pHeader = 28 + columnMetaDataList.size() * 5;
@@ -262,6 +279,8 @@ public class TSDBResultSetBlockData {
             colData.add(col);
         }
         semaphore.release();
+        log.info("doSetByteArrayInner stop");
+
     }
 
     public void doneWithNoData(){
